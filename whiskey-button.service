@@ -1,0 +1,15 @@
+[Unit]
+Description=Whiskey Button — GPIO relay dispenser controller
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/whiskey-button/whiskey_button.py
+WorkingDirectory=/opt/whiskey-button
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
