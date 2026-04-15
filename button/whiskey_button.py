@@ -190,6 +190,12 @@ def on_button_press(_channel) -> None:
     """Callback fired on button press (falling edge)."""
     global _last_pour_time
 
+    # Verify the pin is genuinely low (pressed) — not a noise glitch from
+    # WiFi/power fluctuations that the edge detector picked up.
+    time.sleep(0.02)
+    if GPIO.input(BUTTON_PIN) != GPIO.LOW:
+        return
+
     if not _pour_lock.acquire(blocking=False):
         return
     try:
