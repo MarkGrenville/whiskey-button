@@ -31,7 +31,7 @@ import RPi.GPIO as GPIO
 BUTTON_PIN = 17          # BCM pin number for the push-button
 RELAY_PIN = 27           # BCM pin number for the relay IN signal
 POUR_DURATION = 2        # seconds the relay (valve) stays open per pour
-MAX_POURS_PER_DAY = 2    # pours allowed before lockout
+MAX_POURS_PER_DAY = 20    # pours allowed before lockout
 RESET_HOUR = 6           # hour (0-23) when the daily counter resets
 RELAY_ACTIVE_HIGH = True # True  = HIGH signal activates relay (jumper → H)
                          # False = LOW signal activates relay  (jumper → L)
@@ -40,7 +40,7 @@ DEBOUNCE_MS = 300        # button debounce time in milliseconds
 STATE_FILE = "/var/lib/whiskey-button/state.json"
 
 FIREBASE_DB_URL = os.environ.get("FIREBASE_DB_URL", "")
-REMOTE_POLL_INTERVAL = 30  # seconds between remote-reset checks
+REMOTE_POLL_INTERVAL = 10  # seconds between remote-reset checks
 
 # ---------------------------------------------------------------------------
 # State helpers
