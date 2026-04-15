@@ -15,6 +15,7 @@ import json
 import os
 import signal
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -34,7 +35,7 @@ MAX_POURS_PER_DAY = 2    # pours allowed before lockout
 RESET_HOUR = 6           # hour (0-23) when the daily counter resets
 RELAY_ACTIVE_HIGH = True # True  = HIGH signal activates relay (jumper → H)
                          # False = LOW signal activates relay  (jumper → L)
-DEBOUNCE_MS = 300        # button debounce time in milliseconds
+DEBOUNCE_MS = 30_000     # ignore repeat edges for 30 s after a press
 
 STATE_FILE = "/var/lib/whiskey-button/state.json"
 
@@ -181,19 +182,26 @@ def pour_whiskey() -> None:
     print(f"[{datetime.now():%H:%M:%S}] Done.")
 
 
+_pour_lock = threading.Lock()
+
 def on_button_press(_channel) -> None:
     """Callback fired on button press (falling edge)."""
-    count = get_pour_count()
-    remaining = MAX_POURS_PER_DAY - count
-
-    if remaining <= 0:
-        print(f"[{datetime.now():%H:%M:%S}] Limit reached — suspended until {RESET_HOUR:02d}:00 tomorrow.")
+    if not _pour_lock.acquire(blocking=False):
         return
+    try:
+        count = get_pour_count()
+        remaining = MAX_POURS_PER_DAY - count
 
-    pour_whiskey()
-    new_count = record_pour()
-    left = MAX_POURS_PER_DAY - new_count
-    print(f"[{datetime.now():%H:%M:%S}] Pours used today: {new_count}/{MAX_POURS_PER_DAY} ({left} remaining)")
+        if remaining <= 0:
+            print(f"[{datetime.now():%H:%M:%S}] Limit reached — suspended until {RESET_HOUR:02d}:00 tomorrow.")
+            return
+
+        pour_whiskey()
+        new_count = record_pour()
+        left = MAX_POURS_PER_DAY - new_count
+        print(f"[{datetime.now():%H:%M:%S}] Pours used today: {new_count}/{MAX_POURS_PER_DAY} ({left} remaining)")
+    finally:
+        _pour_lock.release()
 
 
 def main() -> None:
