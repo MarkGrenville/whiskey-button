@@ -35,7 +35,7 @@ MAX_POURS_PER_DAY = 2    # pours allowed before lockout
 RESET_HOUR = 6           # hour (0-23) when the daily counter resets
 RELAY_ACTIVE_HIGH = True # True  = HIGH signal activates relay (jumper → H)
                          # False = LOW signal activates relay  (jumper → L)
-DEBOUNCE_MS = 30_000     # ignore repeat edges for 30 s after a press
+DEBOUNCE_MS = 300        # button debounce time in milliseconds
 
 STATE_FILE = "/var/lib/whiskey-button/state.json"
 
@@ -182,13 +182,21 @@ def pour_whiskey() -> None:
     print(f"[{datetime.now():%H:%M:%S}] Done.")
 
 
+COOLDOWN_SECONDS = 30
 _pour_lock = threading.Lock()
+_last_pour_time = 0.0
 
 def on_button_press(_channel) -> None:
     """Callback fired on button press (falling edge)."""
+    global _last_pour_time
+
     if not _pour_lock.acquire(blocking=False):
         return
     try:
+        now = time.monotonic()
+        if now - _last_pour_time < COOLDOWN_SECONDS:
+            return
+
         count = get_pour_count()
         remaining = MAX_POURS_PER_DAY - count
 
@@ -196,6 +204,7 @@ def on_button_press(_channel) -> None:
             print(f"[{datetime.now():%H:%M:%S}] Limit reached — suspended until {RESET_HOUR:02d}:00 tomorrow.")
             return
 
+        _last_pour_time = now
         pour_whiskey()
         new_count = record_pour()
         left = MAX_POURS_PER_DAY - new_count
