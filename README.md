@@ -13,12 +13,34 @@ her dignity, I sleep a little easier, and nobody has to play gatekeeper.
 A Raspberry Pi, a relay board, a gravity-feed solenoid valve, and a bit of
 Python. That's all it took.
 
+## Repository Layout
+
+```
+whiskey-button/
+├── button/                  # Raspberry Pi controller
+│   ├── whiskey_button.py
+│   ├── whiskey-button.service
+│   ├── whiskey-button.env   # Firebase URL (env template)
+│   ├── install.sh
+│   ├── configure-wifi.sh    # headless WiFi setup
+│   └── requirements.txt
+├── dashboard/               # Firebase web dashboard
+│   ├── public/
+│   │   ├── index.html
+│   │   └── app.js
+│   ├── firebase.json
+│   ├── database.rules.json
+│   └── package.json
+└── README.md
+```
+
 ## How It Works
 
 1. Press the button → relay opens the valve for 2 seconds → whiskey pours.
 2. You get **2 pours per day**.
 3. After that the button is locked out until **06:00 the next morning**.
 4. State is saved to disk, so rebooting the Pi won't reset the counter.
+5. The counter can be **remotely reset** from a web dashboard (see below).
 
 ## Hardware
 
@@ -54,7 +76,7 @@ NO   ─────────────────────▶ other te
 
 ## Configuration
 
-All tunables live at the top of `whiskey_button.py`:
+All tunables live at the top of `button/whiskey_button.py`:
 
 | Constant | Default | Description |
 |---|---|---|
@@ -65,17 +87,51 @@ All tunables live at the top of `whiskey_button.py`:
 | `RESET_HOUR` | `6` | Hour (0-23) when the counter resets |
 | `RELAY_ACTIVE_HIGH` | `True` | Set `False` if your jumper is set to low-level trigger |
 
-## Install
+The Firebase database URL is set via environment variable in
+`/etc/whiskey-button/env` on the Pi (installed from `button/whiskey-button.env`).
+
+## Install (Pi)
 
 Copy the project to your Pi (e.g. via `scp` or `git clone`), then:
 
 ```bash
-cd whiskey-button
+cd whiskey-button/button
 sudo bash install.sh
 ```
 
 This copies the script to `/opt/whiskey-button/`, installs a systemd service,
 and starts it immediately.  It will auto-start on every boot.
+
+## Remote Reset (Dashboard)
+
+A simple web dashboard hosted on Firebase lets you reset the daily counter
+from your phone or laptop — no keyboard or SSH needed.
+
+**Live URL:** https://whiskey-dashboard.web.app
+
+The Pi polls the Firebase Realtime Database every 30 seconds. When it sees a
+new reset signal, it zeroes the pour counter immediately.
+
+### Deploy the Dashboard
+
+```bash
+cd whiskey-button/dashboard
+npm run deploy
+```
+
+## WiFi Pre-Configuration
+
+Before taking the Pi to a new site, pre-configure the WiFi over SSH so it
+connects automatically on boot — no keyboard or monitor needed:
+
+```bash
+cd whiskey-button/button
+sudo bash configure-wifi.sh "SiteWiFiSSID" "SiteWiFiPassword"
+```
+
+This works on both Raspberry Pi OS Bookworm (NetworkManager) and Bullseye
+(wpa_supplicant). Existing networks are preserved, so the Pi still connects
+at home too.
 
 ## Useful Commands
 
@@ -92,8 +148,9 @@ sudo journalctl -u     whiskey-button -f  # live logs
 Pour history is stored in `/var/lib/whiskey-button/state.json`:
 
 ```json
-{"date": "2026-04-12", "count": 1}
+{"date": "2026-04-12", "count": 1, "last_reset_at": 0}
 ```
 
 The date represents the "pour day" (which rolls over at `RESET_HOUR`, not at
-midnight). Deleting this file resets the counter.
+midnight). `last_reset_at` tracks the most recently processed remote reset
+timestamp. Deleting this file resets the counter.

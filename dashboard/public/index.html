@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whiskey Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      background: #16213e;
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: #f5f5f5;
+    }
+
+    .status {
+      font-size: 0.85rem;
+      color: #9e9e9e;
+      margin-bottom: 2rem;
+      min-height: 1.2em;
+    }
+
+    .status time {
+      color: #c9a54e;
+    }
+
+    button {
+      background: #c0392b;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 0.9rem 2.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      width: 100%;
+    }
+
+    button:hover { background: #e74c3c; }
+    button:active { transform: scale(0.97); }
+
+    button:disabled {
+      background: #555;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .confirm {
+      margin-top: 1rem;
+      font-size: 0.8rem;
+      color: #6ab04c;
+      min-height: 2.4em;
+      transition: color 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Whiskey Button</h1>
+    <div class="status" id="status">Connecting…</div>
+    <button id="resetBtn" disabled>Reset Counter</button>
+    <div class="confirm" id="confirm"></div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

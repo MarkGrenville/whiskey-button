@@ -6,6 +6,7 @@ After=multi-user.target
 Type=simple
 ExecStart=/usr/bin/python3 /opt/whiskey-button/whiskey_button.py
 WorkingDirectory=/opt/whiskey-button
+EnvironmentFile=/etc/whiskey-button/env
 Restart=always
 RestartSec=5
 StandardOutput=journal

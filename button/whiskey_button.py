@@ -16,6 +16,8 @@ import os
 import signal
 import sys
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -35,6 +37,9 @@ RELAY_ACTIVE_HIGH = True # True  = HIGH signal activates relay (jumper → H)
 DEBOUNCE_MS = 300        # button debounce time in milliseconds
 
 STATE_FILE = "/var/lib/whiskey-button/state.json"
+
+FIREBASE_DB_URL = os.environ.get("FIREBASE_DB_URL", "")
+REMOTE_POLL_INTERVAL = 30  # seconds between remote-reset checks
 
 # ---------------------------------------------------------------------------
 # State helpers
@@ -58,10 +63,11 @@ def load_state() -> dict:
         with open(STATE_FILE, "r") as f:
             state = json.load(f)
         if "date" in state and "count" in state:
+            state.setdefault("last_reset_at", 0)
             return state
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         pass
-    return {"date": _current_pour_date(), "count": 0}
+    return {"date": _current_pour_date(), "count": 0, "last_reset_at": 0}
 
 
 def save_state(state: dict) -> None:
@@ -92,6 +98,51 @@ def record_pour() -> int:
     state["count"] += 1
     save_state(state)
     return state["count"]
+
+# ---------------------------------------------------------------------------
+# Remote reset
+# ---------------------------------------------------------------------------
+
+def check_remote_reset() -> None:
+    """Poll Firebase for a reset signal and zero the counter if one is found."""
+    if not FIREBASE_DB_URL:
+        return
+    url = FIREBASE_DB_URL.rstrip("/") + "/reset.json"
+    try:
+        req = urllib.request.Request(url, method="GET")
+        req.add_header("Accept", "application/json")
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, TypeError):
+        return
+
+    if not data or "resetAt" not in data:
+        return
+
+    remote_ts = data["resetAt"]
+    state = load_state()
+    if remote_ts > state.get("last_reset_at", 0):
+        state["count"] = 0
+        state["date"] = _current_pour_date()
+        state["last_reset_at"] = remote_ts
+        save_state(state)
+        remaining = MAX_POURS_PER_DAY
+        print(f"[{datetime.now():%H:%M:%S}] Remote reset received — {remaining} pour(s) available.")
+        _confirm_reset(remote_ts)
+
+
+def _confirm_reset(reset_ts: int) -> None:
+    """Write an acknowledgment back to Firebase so the dashboard can confirm."""
+    url = FIREBASE_DB_URL.rstrip("/") + "/reset.json"
+    payload = json.dumps({"resetAt": reset_ts, "confirmedAt": int(time.time() * 1000)}).encode()
+    try:
+        req = urllib.request.Request(url, data=payload, method="PUT")
+        req.add_header("Content-Type", "application/json")
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+    except (urllib.error.URLError, OSError):
+        print(f"[{datetime.now():%H:%M:%S}] Could not send reset confirmation to Firebase.")
+
 
 # ---------------------------------------------------------------------------
 # Relay helpers
@@ -175,14 +226,16 @@ def main() -> None:
     print(f"  Pour time   : {POUR_DURATION}s")
     print(f"  Daily limit : {MAX_POURS_PER_DAY}")
     print(f"  Resets at   : {RESET_HOUR:02d}:00")
+    if FIREBASE_DB_URL:
+        print(f"  Remote reset: {FIREBASE_DB_URL}")
+    else:
+        print(f"  Remote reset: disabled (FIREBASE_DB_URL not set)")
 
-    # Keep the process alive; wake once a minute to check for day rollover
     try:
         while True:
-            time.sleep(60)
-            # Silent daily reset when the clock passes RESET_HOUR
-            if get_pour_count() == 0:
-                pass  # already reset
+            time.sleep(REMOTE_POLL_INTERVAL)
+            get_pour_count()           # day-rollover bookkeeping
+            check_remote_reset()
     except KeyboardInterrupt:
         pass
     finally:

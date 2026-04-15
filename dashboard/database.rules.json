@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "reset": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

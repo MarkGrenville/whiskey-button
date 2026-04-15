@@ -1,0 +1,9 @@
+{
+  "name": "whiskey-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Static site — nothing to build.'",
+    "deploy": "firebase deploy --project whiskey-dashboard"
+  }
+}
