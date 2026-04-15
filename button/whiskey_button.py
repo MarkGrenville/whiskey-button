@@ -40,7 +40,11 @@ DEBOUNCE_MS = 300        # button debounce time in milliseconds
 STATE_FILE = "/var/lib/whiskey-button/state.json"
 
 FIREBASE_DB_URL = os.environ.get("FIREBASE_DB_URL", "")
-REMOTE_POLL_INTERVAL = 10  # seconds between remote-reset checks
+REMOTE_POLL_INTERVAL = 30  # seconds between remote-reset checks
+COOLDOWN_SECONDS = 5      # minimum seconds between button presses
+
+_pour_lock = threading.Lock()
+_last_pour_time = 0.0
 
 # ---------------------------------------------------------------------------
 # State helpers
@@ -181,10 +185,6 @@ def pour_whiskey() -> None:
     relay_off()
     print(f"[{datetime.now():%H:%M:%S}] Done.")
 
-
-COOLDOWN_SECONDS = 30
-_pour_lock = threading.Lock()
-_last_pour_time = 0.0
 
 def on_button_press(_channel) -> None:
     """Callback fired on button press (falling edge)."""
