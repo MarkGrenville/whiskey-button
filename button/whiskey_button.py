@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Whiskey Button — Raspberry Pi gravity-feed whiskey dispenser controller.
+Whiskey Button - Raspberry Pi gravity-feed whiskey dispenser controller.
 
 Monitors a push-button on a GPIO pin. Each press activates a relay for a
 configurable duration to open a gravity-feed valve and pour a measure of
@@ -25,20 +25,20 @@ from pathlib import Path
 import RPi.GPIO as GPIO
 
 # ---------------------------------------------------------------------------
-# Configuration — change these to match your wiring and preferences
+# Configuration - change these to match your wiring and preferences
 # ---------------------------------------------------------------------------
 
 BUTTON_PIN = 17          # BCM pin number for the push-button
 RELAY_PIN = 27           # BCM pin number for the relay IN signal
 DEFAULT_POUR_DURATION = 2  # default seconds the valve stays open per pour
-MIN_POUR_DURATION = 0.1  # safety clamp — shortest allowed pour (seconds)
-MAX_POUR_DURATION = 30   # safety clamp — longest allowed pour (seconds)
+MIN_POUR_DURATION = 0.1  # safety clamp - shortest allowed pour (seconds)
+MAX_POUR_DURATION = 30   # safety clamp - longest allowed pour (seconds)
 DEFAULT_MAX_POURS_PER_DAY = 20  # default pours allowed before lockout
-MIN_MAX_POURS = 1        # safety clamp — fewest pours per day allowed
-MAX_MAX_POURS = 100      # safety clamp — most pours per day allowed
+MIN_MAX_POURS = 1        # safety clamp - fewest pours per day allowed
+MAX_MAX_POURS = 100      # safety clamp - most pours per day allowed
 RESET_HOUR = 6           # hour (0-23) when the daily counter resets
-RELAY_ACTIVE_HIGH = True # True  = HIGH signal activates relay (jumper → H)
-                         # False = LOW signal activates relay  (jumper → L)
+RELAY_ACTIVE_HIGH = True # True  = HIGH signal activates relay (jumper -> H)
+                         # False = LOW signal activates relay  (jumper -> L)
 DEBOUNCE_MS = 300        # button debounce time in milliseconds
 
 STATE_FILE = "/var/lib/whiskey-button/state.json"
@@ -180,7 +180,7 @@ def check_remote_reset() -> None:
         state["last_reset_at"] = remote_ts
         save_state(state)
         remaining = _max_pours
-        print(f"[{datetime.now():%H:%M:%S}] Remote reset received — {remaining} pour(s) available.")
+        print(f"[{datetime.now():%H:%M:%S}] Remote reset received - {remaining} pour(s) available.")
         _confirm_reset(remote_ts)
 
 
@@ -245,7 +245,7 @@ def check_remote_config() -> None:
 
     state["last_config_at"] = remote_ts
     save_state(state)
-    print(f"[{datetime.now():%H:%M:%S}] Remote config received — {', '.join(changes)}.")
+    print(f"[{datetime.now():%H:%M:%S}] Remote config received - {', '.join(changes)}.")
     _confirm_config(remote_ts)
 
 
@@ -298,9 +298,9 @@ def cleanup(_signum=None, _frame=None) -> None:
 # ---------------------------------------------------------------------------
 
 def pour_whiskey() -> None:
-    """Execute one pour cycle: relay on → wait → relay off."""
+    """Execute one pour cycle: relay on -> wait -> relay off."""
     duration = _pour_duration
-    print(f"[{datetime.now():%H:%M:%S}] Pouring for {duration:g}s …")
+    print(f"[{datetime.now():%H:%M:%S}] Pouring for {duration:g}s ...")
     relay_on()
     time.sleep(duration)
     relay_off()
@@ -311,7 +311,7 @@ def on_button_press(_channel) -> None:
     """Callback fired on button press (falling edge)."""
     global _last_pour_time
 
-    # Verify the pin is genuinely low (pressed) — not a noise glitch from
+    # Verify the pin is genuinely low (pressed) - not a noise glitch from
     # WiFi/power fluctuations that the edge detector picked up.
     time.sleep(0.02)
     if GPIO.input(BUTTON_PIN) != GPIO.LOW:
@@ -328,7 +328,7 @@ def on_button_press(_channel) -> None:
         remaining = _max_pours - count
 
         if remaining <= 0:
-            print(f"[{datetime.now():%H:%M:%S}] Limit reached — suspended until {RESET_HOUR:02d}:00 tomorrow.")
+            print(f"[{datetime.now():%H:%M:%S}] Limit reached - suspended until {RESET_HOUR:02d}:00 tomorrow.")
             return
 
         _last_pour_time = now
@@ -372,7 +372,7 @@ def main() -> None:
 
     count = get_pour_count()
     remaining = _max_pours - count
-    print(f"Whiskey Button ready — {remaining} pour(s) remaining today.")
+    print(f"Whiskey Button ready - {remaining} pour(s) remaining today.")
     print(f"  Button GPIO : {BUTTON_PIN}")
     print(f"  Relay GPIO  : {RELAY_PIN}")
     print(f"  Pour time   : {_pour_duration:g}s")
