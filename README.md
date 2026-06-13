@@ -41,6 +41,11 @@ whiskey-button/
 3. After that the button is locked out until **06:00 the next morning**.
 4. State is saved to disk, so rebooting the Pi won't reset the counter.
 5. The counter can be **remotely reset** from a web dashboard (see below).
+6. The **pour duration and daily pour limit can be changed remotely** from the
+   same dashboard — no SSH, no re-plugging, no sudo (see below).
+7. The controller runs as a systemd service that **auto-starts on boot and
+   restarts automatically** if it ever stops, so a power cut just picks back
+   up where it left off (counter, pour duration, and daily limit included).
 
 ## Hardware
 
@@ -82,10 +87,17 @@ All tunables live at the top of `button/whiskey_button.py`:
 |---|---|---|
 | `BUTTON_PIN` | `17` | BCM GPIO pin for the button |
 | `RELAY_PIN` | `27` | BCM GPIO pin for the relay |
-| `POUR_DURATION` | `2` | Seconds the valve stays open |
-| `MAX_POURS_PER_DAY` | `2` | Pours allowed per day |
+| `DEFAULT_POUR_DURATION` | `2` | Seconds the valve stays open (initial value; overridable from the dashboard) |
+| `MIN_POUR_DURATION` / `MAX_POUR_DURATION` | `0.1` / `30` | Safety clamp for remotely-set pour durations |
+| `DEFAULT_MAX_POURS_PER_DAY` | `20` | Pours allowed per day (initial value; overridable from the dashboard) |
+| `MIN_MAX_POURS` / `MAX_MAX_POURS` | `1` / `100` | Safety clamp for remotely-set daily limits |
 | `RESET_HOUR` | `6` | Hour (0-23) when the counter resets |
 | `RELAY_ACTIVE_HIGH` | `True` | Set `False` if your jumper is set to low-level trigger |
+
+Neither the pour duration nor the daily pour limit needs to be edited in code —
+both can be changed live from the dashboard (see **Remote Settings** below).
+Whatever values you set are persisted to the state file, so they survive
+reboots.
 
 The Firebase database URL is set via environment variable in
 `/etc/whiskey-button/env` on the Pi (installed from `button/whiskey-button.env`).
@@ -119,6 +131,43 @@ cd whiskey-button/dashboard
 npm run deploy
 ```
 
+## Remote Settings
+
+The dashboard has a **Settings** section with two fields and a **Force Update**
+button:
+
+- **Pour duration** — seconds the valve stays open per press (0.1–30s).
+- **Pours per day** — total presses allowed before lockout (1–100).
+
+Enter the values you want and press **Force Update**:
+
+1. The dashboard writes the new values to the Firebase `config` node.
+2. Within one poll cycle (≤ 30s) the Pi picks them up, applies them, and
+   persists them to its state file.
+3. The Pi writes an acknowledgment back, and the dashboard shows
+   *"Active: Xs, N pours/day (confirmed by Pi …)"*.
+
+Because this travels over Firebase, no SSH, keyboard, monitor, or `sudo` is
+needed — and the values survive reboots. Changes apply to *every* subsequent
+pour until you change them again. Lowering the daily limit below the number of
+pours already used today simply locks the button out until the next reset.
+
+## Always-On / Auto-Restart
+
+The controller is installed as a systemd service configured to:
+
+- **Start automatically on every boot** (`WantedBy=multi-user.target`, enabled
+  during install).
+- **Restart automatically** if it ever exits or crashes (`Restart=always`,
+  `RestartSec=5`), with the start-limit disabled so systemd never stops trying.
+- **Preserve the counter and pour duration** across restarts and power cuts,
+  since both live in `/var/lib/whiskey-button/state.json`.
+
+So if the Pi is switched off and on again, the dispenser comes straight back
+with the same remaining pours and the same pour duration. To apply changes to
+the service definition itself, re-run the installer (`sudo bash install.sh`)
+and `sudo systemctl restart whiskey-button`.
+
 ## WiFi Pre-Configuration
 
 Before taking the Pi to a new site, pre-configure the WiFi over SSH so it
@@ -148,9 +197,12 @@ sudo journalctl -u     whiskey-button -f  # live logs
 Pour history is stored in `/var/lib/whiskey-button/state.json`:
 
 ```json
-{"date": "2026-04-12", "count": 1, "last_reset_at": 0}
+{"date": "2026-04-12", "count": 1, "last_reset_at": 0, "pour_duration": 2, "max_pours": 20, "last_config_at": 0}
 ```
 
 The date represents the "pour day" (which rolls over at `RESET_HOUR`, not at
 midnight). `last_reset_at` tracks the most recently processed remote reset
-timestamp. Deleting this file resets the counter.
+timestamp, and `last_config_at` the most recently applied remote settings
+change. `pour_duration` is the currently active pour time in seconds and
+`max_pours` the currently active daily limit. Deleting this file resets the
+counter (and reverts the pour duration and daily limit to their defaults).

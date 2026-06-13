@@ -1,6 +1,8 @@
 [Unit]
 Description=Whiskey Button — GPIO relay dispenser controller
 After=multi-user.target
+# Never give up restarting — keep the dispenser running no matter what.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
